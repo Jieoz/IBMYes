@@ -8,6 +8,7 @@ on:
   schedule:
     - cron: '00 19 * * 3'
 
+
 jobs:
   ibm-cloud-restart:
     runs-on: ubuntu-latest
@@ -17,35 +18,23 @@ jobs:
 
     - name: Init
       run: |
-        chmod -R 777 ./IBM_Cloud_CLI/
+        wget -q -O - https://packages.cloudfoundry.org/debian/cli.cloudfoundry.org.key | sudo apt-key add -
+        echo "deb https://packages.cloudfoundry.org/debian stable main" | sudo tee /etc/apt/sources.list.d/cloudfoundry-cli.list
+        sudo apt-get update
+        sudo apt-get install cf-cli
     - name: Login IBM Cloud
       env:
         IBM_ACCOUNT: ${{ secrets.IBM_ACCOUNT }}
-        REGION_NUM: ${{ secrets.REGION_NUM }}
+        IBM_PASSWORD: ${{ secrets.IBM_PASSWORD }}
       run: |
-        pwd
-        /home/runner/work/IBMYes/IBMYes/IBM_Cloud_CLI/ibmcloud login <<EOF
-        $IBM_ACCOUNT
-        $REGION_NUM
-        no
+        cf login -a https://api.us-south.cf.cloud.ibm.com -u $IBM_ACCOUNT << EOF
+        $IBM_PASSWORD
         EOF
-    - name: Target IBM Cloud
+    - name: Get IBM Cloud Apps
+      run: |
+        cf a
+    - name: Restart IBM Cloud
       env:
-        RESOURSE_ID: ${{ secrets.RESOURSE_ID }}
         IBM_APP_NAME: ${{ secrets.IBM_APP_NAME }}
       run: |
-        rm -rf v2ray-cloudfoundry
-        git clone https://github.com/a132395/v2ray-cloudfoundry.git
-        chmod +x /home/runner/work/IBMYes/IBMYes/v2ray-cloudfoundry/v2ray/*
-        cd v2ray-cloudfoundry
-        sed -i "s/GetStartedGo/${{ secrets.IBM_APP_NAME }}/g"  /home/runner/work/IBMYes/IBMYes/v2ray-cloudfoundry/manifest.yml
-        #sed -i "s/8c35bef3-d51f-41ab-ac87-7b053410495b/${{ secrets.UUID }}/g"  /home/runner/work/IBMYes/IBMYes/v2ray-cloudfoundry/v2ray/config.json
-        #sed -i "s:/:${{ secrets.PATH }}:"  /home/runner/work/IBMYes/IBMYes/v2ray-cloudfoundry/v2ray/config.json
-        sed -i "s/128/256/g"  /home/runner/work/IBMYes/IBMYes/v2ray-cloudfoundry/manifest.yml
-        #/home/runner/work/IBMYes/IBMYes/IBM_Cloud_CLI/ibmcloud target -r eu-gb
-        /home/runner/work/IBMYes/IBMYes/IBM_Cloud_CLI/ibmcloud target -g "$RESOURSE_ID"
-        /home/runner/work/IBMYes/IBMYes/IBM_Cloud_CLI/ibmcloud target --cf
-        /home/runner/work/IBMYes/IBMYes/IBM_Cloud_CLI/ibmcloud cf install
-        /home/runner/work/IBMYes/IBMYes/IBM_Cloud_CLI/ibmcloud cf push
-
-
+        cf restart $IBM_APP_NAME
